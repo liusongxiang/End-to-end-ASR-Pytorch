@@ -97,8 +97,8 @@ class BaseSolver():
             ckpt = torch.load(
                 self.paras.load, map_location=self.device if self.mode == 'train' else 'cpu')
             self.model.load_state_dict(ckpt['model'])
-            if self.emb_decoder is not None:
-                self.emb_decoder.load_state_dict(ckpt['emb_decoder'])
+            # if self.emb_decoder is not None:
+                # self.emb_decoder.load_state_dict(ckpt['emb_decoder'])
             # if self.amp:
             #    amp.load_state_dict(ckpt['amp'])
             # Load task-dependent items

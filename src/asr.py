@@ -155,6 +155,9 @@ class Decoder(nn.Module):
     # ToDo:　More elegant way to implement decoder
 
     def __init__(self, input_dim, vocab_size, module, dim, layer, dropout):
+        """
+        layer: number of decoder RNN layers.
+        """
         super(Decoder, self).__init__()
         self.in_dim = input_dim
         self.layer = layer
@@ -207,7 +210,9 @@ class Decoder(nn.Module):
             return self.hidden_state.transpose(0, 1).reshape(-1, self.dim*self.layer)
 
     def forward(self, x):
-        ''' Decode and transform into vocab '''
+        ''' Decode and transform into vocab.
+            x: (BxD)
+        '''
         if not self.training:
             self.layers.flatten_parameters()
         x, self.hidden_state = self.layers(x.unsqueeze(1), self.hidden_state)
@@ -313,10 +318,23 @@ class Encoder(nn.Module):
         Encodes acoustic feature to latent representation, see config file for more details.'''
 
     def __init__(self, input_size, vgg, module, bidirection, dim, dropout, layer_norm, proj, sample_rate, sample_style):
+        """
+        input_size: acoustic input dimension.
+        vgg: bool, whether to use VGG encoder or not.
+        module: str, 'LSTM' or 'GRU'.
+        bidirection: whether to use biditectional RNNs.
+        dim: list of number of cells for each RNN layer (per direction).
+        dropout: list of dopout probability for each RNN layer.
+        layer_norm: list of bool to enable LayerNorm for each RNN layer.
+        proj: list of bool to enable linear projection after each RNN layer.
+        sample_rate: list of sample rate for each RNN layer. For each layer, the sequence length reduced by sample_rate.
+        sample_style: str, the down sampling mechanism. 'concat': will concatenate multiple time steps according to sample 
+            rate into one vector; 'drop' will drop the unsampled timesteps.
+        """
         super(Encoder, self).__init__()
-
+        
         # Hyper-parameters checking
-        self.vgg = vgg
+        self.vgg = vgg   # bool to employ CNN based encoder before RNN
         self.sample_rate = 1
         assert len(sample_rate) == len(dropout), 'Number of layer mismatch'
         assert len(dropout) == len(dim), 'Number of layer mismatch'

@@ -16,6 +16,7 @@ def collect_audio_batch(batch, audio_transform, mode):
        e.g. [(file1,txt1),(file2,txt2),...] '''
 
     # Bucketed batch should be [[(file1,txt1),(file2,txt2),...]]
+    # This happens during training
     if type(batch[0]) is not tuple:
         batch = batch[0]
     # Make sure that batch size is reasonable
@@ -63,7 +64,15 @@ def collect_text_batch(batch, mode):
 
 def create_dataset(tokenizer, ascending, name, path, bucketing, batch_size,
                    train_split=None, dev_split=None, test_split=None):
-    ''' Interface for creating all kinds of dataset'''
+    ''' Interface for creating all kinds of dataset.
+        name: Dataset name, e.g LibriSpeech
+        path: Dataset root dir, e.g data/LibriSpeech
+        bucketing:
+        batch_size:
+        train_split: list of training data, e.g, ['train-clean-100','train-clean-360','train-other-500']
+        dev_split: list of validation set, e.g, ['dev-clean'] 
+        test_split: list of testing set.
+    '''
 
     # Recognize corpus
     if name.lower() == "librispeech":

@@ -221,9 +221,58 @@ class BertTextEncoder(_BaseTextEncoder):
         return 2
 
 
+class PhonemeTextEncoder(_BaseTextEncoder):
+    def __init__(self, vocab_list):
+        # Note that vocab_list must not contain <pad>, <eos> and <unk>
+        # <pad>=0, <eos>=1, <unk>=2
+        self._vocab_list = ["<pad>", "<eos>"] + vocab_list
+        self._vocab2idx = {v: idx for idx, v in enumerate(self._vocab_list)}
+
+    def encode(self, s):
+        # s: space seperated phn seq
+        # Always strip trailing space, \r and \n
+        s = s.strip("\r\n ")
+        s = s.split()
+        # Manually append eos to the end
+        return [self.vocab_to_idx(v) for v in s] + [self.eos_idx]
+
+    def decode(self, idxs, ignore_repeat=False):
+        vocabs = []
+        for t, idx in enumerate(idxs):
+            v = self.idx_to_vocab(idx)
+            if idx == self.pad_idx or (ignore_repeat and t > 0 and idx == vocabs[t-1]):
+                continue
+            elif idx == self.eos_idx:
+                break
+            else:
+                vocabs.append(v)
+        return "".join(vocabs)
+
+    @classmethod
+    def load_from_file(cls, vocab_file):
+        with open(vocab_file, "r") as f:
+            vocab_list = [line.strip("\r\n") for line in f]
+        return cls(vocab_list)
+
+    @property
+    def vocab_size(self):
+        return len(self._vocab_list)
+
+    @property
+    def token_type(self):
+        return 'character'
+
+    def vocab_to_idx(self, vocab):
+        return self._vocab2idx.get(vocab, self.unk_idx)
+
+    def idx_to_vocab(self, idx):
+        return self._vocab_list[idx]
+
 def load_text_encoder(mode, vocab_file):
     if mode == "character":
         return CharacterTextEncoder.load_from_file(vocab_file)
+    elif mode == "phoneme":
+        return PhonemeTextEncoder.load_from_file(vocab_file)
     elif mode == "subword":
         return SubwordTextEncoder.load_from_file(vocab_file)
     elif mode == "word":

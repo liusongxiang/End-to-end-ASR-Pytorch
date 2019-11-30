@@ -12,21 +12,36 @@ REMOVE_TOP_N_TXT = 5000000
 READ_FILE_THREADS = 4
 
 
-def read_text(file):
-    '''Get transcription of target wave file, 
-       it's somewhat redundant for accessing each txt multiplt times,
-       but it works fine with multi-thread'''
-    src_file = '-'.join(file.split('-')[:-1])+'.trans.txt'
-    idx = file.split('/')[-1].split('.')[0]
+# def read_text(file):
+    # '''Get transcription of target wave file, 
+       # it's somewhat redundant for accessing each txt multiplt times,
+       # but it works fine with multi-thread'''
+    # src_file = '-'.join(file.split('-')[:-1])+'.trans.txt'
+    # idx = file.split('/')[-1].split('.')[0]
 
-    with open(src_file, 'r') as fp:
-        for line in fp:
-            if idx == line.split(' ')[0]:
-                return line[:-1].split(' ', 1)[1]
+    # with open(src_file, 'r') as fp:
+        # for line in fp:
+            # if idx == line.split(' ')[0]:
+                # return line[:-1].split(' ', 1)[1]
 
+
+def read_text(audio_fname):
+    uttid = audio_fname.split('/')[-1].split('.')[0]
+    trans_file = audio_fname.replace('.wav', '.txt')
+
+    with open(trans_file, 'r') as fp:
+        return ' '.join([str(l.strip().split()[-1]).upper() for l in fp.readlines()])
+            
 
 class LibriDataset(Dataset):
-    def __init__(self, path, split, tokenizer, bucket_size, ascending=False):
+    def __init__(self, path, split, tokenizer, bucket_size, ascending=False, audio_extension='wav'):
+        """
+            path: dataset root dir.
+            split: e.g. ['train-clean-100','train-clean-360','train-other-500']
+            tokenizer: a mapper which can map text seq -> int seq and vice versa.
+            bucket_size: for training, better set bucket_size > 1 such as bucket_size = 32.
+            ascending: whether sort the uttid in terms of text length in ascending order.
+        """
         # Setup
         self.path = path
         self.bucket_size = bucket_size
@@ -34,7 +49,7 @@ class LibriDataset(Dataset):
         # List all wave files
         file_list = []
         for s in split:
-            file_list += list(Path(join(path, s)).rglob("*.flac"))
+            file_list += list(Path(join(path, s)).rglob(f"*.{audio_extension}"))   # TODO
         assert len(file_list) > 0, "No data found @ {}".format(path)
 
         # Read text
@@ -43,8 +58,8 @@ class LibriDataset(Dataset):
         #text = Parallel(n_jobs=-1)(delayed(tokenizer.encode)(txt) for txt in text)
         text = [tokenizer.encode(txt) for txt in text]
 
-        # Sort dataset by text length
-        #file_len = Parallel(n_jobs=READ_FILE_THREADS)(delayed(getsize)(f) for f in file_list)
+        # Sort dataset by text length, when training, sort in descending order
+        # file_len = Parallel(n_jobs=READ_FILE_THREADS)(delayed(getsize)(f) for f in file_list)
         self.file_list, self.text = zip(*[(f_name, txt)
                                           for f_name, txt in sorted(zip(file_list, text), reverse=not ascending, key=lambda x:len(x[1]))])
 

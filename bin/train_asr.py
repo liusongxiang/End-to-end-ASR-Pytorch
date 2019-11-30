@@ -47,20 +47,6 @@ class Solver(BaseSolver):
         # Note: zero_infinity=False is unstable?
         self.ctc_loss = torch.nn.CTCLoss(blank=0, zero_infinity=False)
 
-        # Plug-ins
-        self.emb_fuse = False
-        self.emb_reg = ('emb' in self.config) and (
-            self.config['emb']['enable'])
-        if self.emb_reg:
-            from src.plugin import EmbeddingRegularizer
-            self.emb_decoder = EmbeddingRegularizer(
-                self.tokenizer, self.model.dec_dim, **self.config['emb']).to(self.device)
-            model_paras.append({'params': self.emb_decoder.parameters()})
-            self.emb_fuse = self.emb_decoder.apply_fuse
-            if self.emb_fuse:
-                self.seq_loss = torch.nn.NLLLoss(ignore_index=0)
-            self.verbose(self.emb_decoder.create_msg())
-
         # Optimizer
         self.optimizer = Optimizer(model_paras, **self.config['hparas'])
         self.verbose(self.optimizer.create_msg())
@@ -104,12 +90,6 @@ class Solver(BaseSolver):
                     self.model(feat, feat_len, max(txt_len), tf_rate=tf_rate,
                                teacher=txt, get_dec_state=self.emb_reg)
 
-                # Plugins
-                if self.emb_reg:
-                    emb_loss, fuse_output = self.emb_decoder(
-                        dec_state, att_output, label=txt)
-                    total_loss += self.emb_decoder.weight*emb_loss
-
                 # Compute all objectives
                 if ctc_output is not None:
                     if self.paras.cudnn_ctc:
@@ -142,15 +122,8 @@ class Solver(BaseSolver):
                                   .format(total_loss.cpu().item(), grad_norm, self.timer.show()))
                     self.write_log(
                         'loss', {'tr_ctc': ctc_loss, 'tr_att': att_loss})
-                    self.write_log('emb_loss', {'tr': emb_loss})
                     self.write_log('wer', {'tr_att': cal_er(self.tokenizer, att_output, txt),
                                            'tr_ctc': cal_er(self.tokenizer, ctc_output, txt, ctc=True)})
-                    if self.emb_fuse:
-                        if self.emb_decoder.fuse_learnable:
-                            self.write_log('fuse_lambda', {
-                                           'emb': self.emb_decoder.get_weight()})
-                        self.write_log(
-                            'fuse_temp', {'temp': self.emb_decoder.get_temp()})
 
                 # Validation
                 if (self.step == 1) or (self.step % self.valid_step == 0):
